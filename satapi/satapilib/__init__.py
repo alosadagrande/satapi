@@ -22,7 +22,9 @@ from puppet_classes import *
 from puppet_environments import *
 from puppet_modules import *
 from repositories import *
+from settings import *
 from subnets import *
 from subscriptions import *
+from sync_plans import *
 from systems import *
 from tasks import *
