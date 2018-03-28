@@ -49,34 +49,48 @@ class SatAPIPuppetClasses(SatAPIConnection):
                          '/smart_class_parameters?search=key=' + criteria)
         return Response
 
-    # Set/update override values for a given class parameter
+    # Set/update override values for a given class parameter. Two API calls are needed:
+    # 1. Get the sc-parameter id that needs to be updated
+    # 2. Set the new matcher/value for the sc-parameter
     def setPuppetClassSmartParameterOverrides(self, PuppetClass,
         Parameter, OverridesJSON):
+
         try:
-            Response=self.POST(self.SatAPILocation + 'puppetclasses/' +
-                            PuppetClass + '/smart_class_parameters/' +
-                            Parameter + '/override_values', OverridesJSON)
+            #Get the sc-parameter id that needs to be updated
+            Response_ParamID=self.searchPuppetClassSmartParameterID(Parameter,PuppetClass)
+            paramID=Response_ParamID['results'][0]['id']
+            #Set the new value for the sc-parameter if the sc-parameter does not exist
+            Response=self.POST(self.SatAPILocation + 'smart_class_parameters/' + str(paramID) +
+                              '/override_values', OverridesJSON)
         except:
+            #If the sc-parameter matcher is already set. Check if it needs to be updated
+            logger.info('sc-parameter matcher was already defined in %s PuppetClass.' % PuppetClass)
             Response=self.getPuppetClassSmartParameterOverrides(PuppetClass,
                             Parameter)
-
             try:
                 OverridesJSON=json.loads(OverridesJSON)
-                for NewOverride in OverridesJSON['override_value']:
-                    found=False
-                    for ExistingOverride in Response['results']:
-                        if ExistingOverride['match'] == NewOverride['match']:
-                            found=True
-                            logger.debug('Updating existing override matching %s with id %s' %
-                                (ExistingOverride['match'],ExistingOverride['id']))
+                #Load match and value for new sc-parameter
+                NewOverrideMatch=str(OverridesJSON['override_value']['match'])
+                NewOverrideValue=str(OverridesJSON['override_value']['value'])
+                logger.info('Searching for the matcher and value of the sc-parameter if needs to be overwritten: %s (%s)' % (str(NewOverrideMatch),PuppetClass))
+
+                #Loop for each of the sc-parameter elements of the existing puppet class 
+                for total_results in range(len(Response['results'])):
+                    if NewOverrideMatch == str(Response['results'][total_results]['match']):
+                        #sc-parameter found: Checking if needs to be updated
+                        if NewOverrideValue != str(Response['results'][total_results]['value']):
+                            logger.info('++++ sc-parameter matcher found: Updating existing override matching %s with id %s (%s)' %
+                                        (str(Response['results'][total_results]['match']),str(Response['results'][total_results]['id']),PuppetClass))
+                            logger.debug('Previous matcher value is %s and new value is %s (%s)' % (str(Response['results'][total_results]['value']),NewOverrideValue,PuppetClass))
                             ResponsePUT=self.PUT(self.SatAPILocation + 'puppetclasses/' +
-                                PuppetClass + '/smart_class_parameters/' +
-                                Parameter + '/override_values/' + str(ExistingOverride['id']),
-                                json.dumps(NewOverride))
-                    if found == False:
-                        ResponsePOST=self.POST(self.SatAPILocation + 'puppetclasses/' +
-                            PuppetClass + '/smart_class_parameters/' +
-                            Parameter + '/override_values', json.dumps({'override_value': NewOverride}))
+                                               PuppetClass + '/smart_class_parameters/' +
+                                               Parameter + '/override_values/' + str(Response['results'][total_results]['id']),
+                                               json.dumps(OverridesJSON))
+                            logger.debug('Update\'s server response: ' + str(ResponsePUT))
+                        else:
+                            logger.info('==== sc-parameter already has same value. Not updating')
+                            logger.debug('Previous matcher value is %s and new value is %s' % (str(Response['results'][total_results]['value']),NewOverrideValue))
+
             except requests.exceptions.HTTPError as e:
                  self.exception(e.message)
                  Response = 0
