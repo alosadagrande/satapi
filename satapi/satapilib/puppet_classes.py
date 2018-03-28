@@ -43,6 +43,12 @@ class SatAPIPuppetClasses(SatAPIConnection):
                             Parameter + '/override_values', JSONData)
         return Response
 
+    # Get smart class parameters id for a given search criteria
+    def searchPuppetClassSmartParameterID(self, criteria, PuppetClass):
+        Response=self.GET(self.SatAPILocation + 'puppetclasses/' + PuppetClass +
+                         '/smart_class_parameters?search=key=' + criteria)
+        return Response
+
     # Set/update override values for a given class parameter
     def setPuppetClassSmartParameterOverrides(self, PuppetClass,
         Parameter, OverridesJSON):
